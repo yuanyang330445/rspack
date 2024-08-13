@@ -420,6 +420,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "camino"
+version = "1.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0ec6b951b160caa93cc0c7b209e5a3bff7aae9062213451ac99493cd844c239"
+
+[[package]]
 name = "cargo_toml"
 version = "0.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3157,6 +3163,7 @@ dependencies = [
  "rspack_hook",
  "rspack_loader_runner",
  "rspack_macros",
+ "rspack_paths",
  "rspack_regex",
  "rspack_resolver",
  "rspack_sources",
@@ -3413,6 +3420,13 @@ dependencies = [
  "rspack_tracing",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "rspack_paths"
+version = "0.1.0"
+dependencies = [
+ "camino",
 ]
 
 [[package]]
