@@ -13,6 +13,7 @@ testing = ["dep:schemars"]
 anyhow            = { workspace = true }
 dojang            = "0.1.6"
 itertools         = { workspace = true }
+napi              = { workspace = true }
 path-clean        = { workspace = true }
 rayon             = { workspace = true }
 regex             = { workspace = true }
@@ -20,6 +21,7 @@ rspack_base64     = { version = "0.1.0", path = "../rspack_base64" }
 rspack_core       = { version = "0.1.0", path = "../rspack_core" }
 rspack_error      = { version = "0.1.0", path = "../rspack_error" }
 rspack_hook       = { version = "0.1.0", path = "../rspack_hook" }
+rspack_napi       = { version = "0.1.0", path = "../rspack_napi" }
 rspack_util       = { version = "0.1.0", path = "../rspack_util" }
 schemars          = { workspace = true, optional = true }
 serde             = { workspace = true, features = ["derive"] }
