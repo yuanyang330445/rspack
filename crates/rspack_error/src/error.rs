@@ -341,10 +341,9 @@ fn _assert() {
 /// (message, stack, backtrace, hide_stack)
 #[derive(Debug, Error, Diagnostic)]
 #[diagnostic()]
-#[error("{reason}\n{backtrace}")]
+#[error("{reason}")]
 pub struct NodeError {
   pub reason: String,
   pub stack: Option<String>,
-  pub backtrace: String,
   pub hide_stack: Option<bool>,
 }

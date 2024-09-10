@@ -1,5 +1,6 @@
 import type { JsRspackError, JsStatsError } from "@rspack/binding";
 import type { LoaderObject } from "../loader-runner";
+import { cutOffLoaderExecution } from "../ErrorHelpers";
 
 export function mapValues(
 	record: Record<string, string>,
@@ -75,10 +76,24 @@ export function concatErrorMsgAndStack(
 	if (typeof err === "string") {
 		return new Error(err);
 	}
-	const hideStack = "hideStack" in err && err.hideStack;
-	if (!hideStack && "stack" in err) {
-		err.message = err.stack || err.message;
+	if (typeof err.stack === "string" && err.stack) {
+		if (!(err as any).hideStack) {
+			err.message = cutOffLoaderExecution(err.stack);
+		} else {
+			// This is intended to be different than webpack,
+			// here we want to treat the almost the same as `Error.stack` just without the stack.
+			// Webpack uses `Error.message`, however it does not contain the `Error.prototype.name`
+			// `xxx` -> `Error: xxx`. So they behave the same even if `hideStack` is set to `true`.
+			err.message = err.toString()
+		}
+	} else {
+		// This is intended to be different than webpack,
+		// here we want to treat the almost the same as `Error.stack` just without the stack.
+		// Webpack uses `Error.message`, however it does not contain the `Error.prototype.name`
+		// `xxx` -> `Error: xxx`. So they behave the same even if `hideStack` is set to `true`.
+		err.message = err.toString();
 	}
+	err.message = err.message.trim();
 	// maybe `null`, use `undefined` to compatible with `Option<String>`
 	err.stack = err.stack || undefined;
 	return err;

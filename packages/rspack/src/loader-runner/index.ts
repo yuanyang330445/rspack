@@ -29,7 +29,7 @@ import type { Compilation } from "../Compilation";
 import type { Compiler } from "../Compiler";
 import { Module } from "../Module";
 import { NormalModule } from "../NormalModule";
-import { NonErrorEmittedError, type RspackError } from "../RspackError";
+import { JsDiagnostic, NonErrorEmittedError, type RspackError } from "../RspackError";
 import {
 	BUILTIN_LOADER_PREFIX,
 	type LoaderContext,
@@ -37,7 +37,6 @@ import {
 	isUseSourceMap
 } from "../config/adapterRuleUse";
 import {
-	concatErrorMsgAndStack,
 	isNil,
 	serializeObject,
 	stringifyLoaderObject,
@@ -291,11 +290,6 @@ const runSyncOrAsync = promisify(function runSyncOrAsync(
 			return;
 		}
 	} catch (e: unknown) {
-		// use string for napi getter
-		const err = e as Error;
-		if ("hideStack" in err && err.hideStack) {
-			err.hideStack = "true";
-		}
 		if (isError) throw e;
 		if (isDone) {
 			// loader is already "done", so we cannot use the callback function
@@ -618,36 +612,28 @@ export async function runLoaders(
 		if (!(error instanceof Error)) {
 			error = new NonErrorEmittedError(error);
 		}
-		const hasStack = !!error.stack;
-		error.name = "ModuleError";
-		error.message = `${error.message} (from: ${stringifyLoaderObject(
-			loaderContext.loaders[loaderContext.loaderIndex]
-		)})`;
-		!hasStack && Error.captureStackTrace(error);
-		error = concatErrorMsgAndStack(error);
-		(error as RspackError).moduleIdentifier = this._module.identifier();
-		compiler._lastCompilation!.__internal__pushDiagnostic({
-			error,
-			severity: JsRspackSeverity.Error
+		error = new ModuleError(error, {
+			from: stringifyLoaderObject(loaderContext.loaders[loaderContext.loaderIndex]),
+			moduleIdentifier: this._module.identifier()
 		});
+		compiler._lastCompilation!.__internal__pushDiagnostic(JsDiagnostic.__to_binding(
+			error,
+			JsRspackSeverity.Error
+		));
 	};
 	loaderContext.emitWarning = function emitWarning(warn) {
 		let warning = warn;
 		if (!(warning instanceof Error)) {
 			warning = new NonErrorEmittedError(warning);
 		}
-		const hasStack = !!warning.stack;
-		warning.name = "ModuleWarning";
-		warning.message = `${warning.message} (from: ${stringifyLoaderObject(
-			loaderContext.loaders[loaderContext.loaderIndex]
-		)})`;
-		hasStack && Error.captureStackTrace(warning);
-		warning = concatErrorMsgAndStack(warning);
-		(warning as RspackError).moduleIdentifier = this._module.identifier();
-		compiler._lastCompilation!.__internal__pushDiagnostic({
-			error: warning,
-			severity: JsRspackSeverity.Warn
+		warning = new ModuleWarning(warning, {
+			from: stringifyLoaderObject(loaderContext.loaders[loaderContext.loaderIndex]),
+			moduleIdentifier: this._module.identifier()
 		});
+		compiler._lastCompilation!.__internal__pushDiagnostic(JsDiagnostic.__to_binding(
+			warning,
+			JsRspackSeverity.Warn
+		));
 	};
 	loaderContext.emitFile = function emitFile(
 		name,
@@ -897,4 +883,62 @@ export function parsePathQueryFragment(str: string): {
 		query: match?.[2] ? match[2].replace(/\u200b(.)/g, "$1") : "",
 		fragment: match?.[3] || ""
 	};
+}
+
+class ModuleError extends Error implements RspackError {
+	name: string;
+	message: string;
+	moduleIdentifier?: string;
+	loc?: string;
+	file?: string;
+	stack?: string;
+	hideStack?: boolean;
+
+	constructor(err: RspackError, { from, moduleIdentifier }: { from?: string, moduleIdentifier?: string } = {}) {
+		let message = "";
+
+		if (err && typeof err === "object" && err.message) {
+			message += err.message;
+		} else if (err) {
+			message += err;
+		}
+
+		message += from ? ` (from ${from})\n` : "\n";
+
+		super(message);
+
+		this.name = "ModuleError";
+		this.message = message;
+		this.hideStack = err.hideStack;
+		this.moduleIdentifier = moduleIdentifier;
+	}
+}
+
+class ModuleWarning extends Error implements RspackError {
+	name: string;
+	message: string;
+	moduleIdentifier?: string;
+	loc?: string;
+	file?: string;
+	stack?: string;
+	hideStack?: boolean;
+
+	constructor(err: RspackError, { from, moduleIdentifier }: { from?: string, moduleIdentifier?: string } = {}) {
+		let message = "";
+
+		if (err && typeof err === "object" && err.message) {
+			message += err.message;
+		} else if (err) {
+			message += err;
+		}
+
+		message += from ? ` (from ${from})\n` : "\n";
+
+		super(message);
+
+		this.name = "ModuleWarning";
+		this.message = message;
+		this.hideStack = err.hideStack;
+		this.moduleIdentifier = moduleIdentifier;
+	}
 }
