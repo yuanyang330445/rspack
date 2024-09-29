@@ -1289,9 +1289,9 @@ impl ExportInfo {
     false
   }
 
-  pub fn move_target<'a>(
-    &'a self,
-    mg: &'a mut ModuleGraph<'a>,
+  pub fn move_target(
+    &self,
+    mg: &mut ModuleGraph<'_>,
     resolve_filter: ResolveFilterFnTy,
     update_original_connection: UpdateOriginalFunctionTy,
   ) -> Option<ResolvedExportInfoTarget> {
