@@ -148,7 +148,7 @@ fn render_startup(
     for export_info in exports_info.ordered_exports(&module_graph) {
       let info_name = export_info.name(&module_graph).expect("should have name");
       let used_name = export_info
-        .get_used_name(&module_graph, Some(info_name), Some(&chunk.runtime))
+        .get_used_name(&module_graph, Some(&info_name), Some(&chunk.runtime))
         .expect("name can't be empty");
 
       let final_name = exports_final_names.get(used_name.as_str());
@@ -160,7 +160,7 @@ fn render_startup(
         // Currently, there's not way to determine if a final_name contains a property access.
         if contains_char(final_name, "[]().") {
           exports_with_property_access.push((final_name, info_name));
-        } else if info_name == final_name {
+        } else if &info_name == final_name {
           exports.push(info_name.to_string());
         } else {
           exports.push(format!("{} as {}", final_name, info_name));

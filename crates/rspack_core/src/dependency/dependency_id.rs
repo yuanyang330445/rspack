@@ -16,7 +16,7 @@ impl DependencyId {
     Self(DEPENDENCY_ID.fetch_add(1, Relaxed))
   }
 
-  pub fn set_ids(&self, ids: Vec<Atom>, mg: &mut ModuleGraph) {
+  pub fn set_ids(&self, ids: Vec<Atom>, mg: &ModuleGraph) {
     mg.set_dep_meta(*self, ids);
   }
 

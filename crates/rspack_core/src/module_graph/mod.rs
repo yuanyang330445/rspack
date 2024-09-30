@@ -1,6 +1,10 @@
-use std::collections::hash_map::Entry;
+use std::{collections::hash_map::Entry, hash::BuildHasherDefault};
 
-use rspack_collections::{IdentifierMap, UkeyMap};
+use dashmap::{
+  mapref::one::{Ref, RefMut},
+  DashMap,
+};
+use rspack_collections::{IdentifierMap, UkeyDashMap, UkeyHasher};
 use rspack_error::Result;
 use rspack_hash::RspackHashDigest;
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
@@ -23,6 +27,15 @@ use crate::{
 // TODO Here request can be used Atom
 pub type ImportVarMap =
   HashMap<Option<ModuleIdentifier> /* request */, String /* import_var */>;
+
+pub type ExportInfoDataRef<'a> =
+  Ref<'a, ExportInfo, ExportInfoData, BuildHasherDefault<UkeyHasher>>;
+pub type ExportInfoDataRefMut<'a> =
+  RefMut<'a, ExportInfo, ExportInfoData, BuildHasherDefault<UkeyHasher>>;
+pub type ExportsInfoDataRef<'a> =
+  Ref<'a, ExportsInfo, ExportsInfoData, BuildHasherDefault<UkeyHasher>>;
+pub type ExportsInfoDataRefMut<'a> =
+  RefMut<'a, ExportsInfo, ExportsInfoData, BuildHasherDefault<UkeyHasher>>;
 
 /// https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/ModuleGraph.js#L742-L748
 #[derive(Debug)]
@@ -127,10 +140,10 @@ pub struct ModuleGraphPartial {
   dependency_id_to_parents: HashMap<DependencyId, Option<DependencyParents>>,
 
   // Module's ExportsInfo is also a part of ModuleGraph
-  exports_info_map: UkeyMap<ExportsInfo, ExportsInfoData>,
-  export_info_map: UkeyMap<ExportInfo, ExportInfoData>,
+  exports_info_map: UkeyDashMap<ExportsInfo, ExportsInfoData>,
+  export_info_map: UkeyDashMap<ExportInfo, ExportInfoData>,
   connection_to_condition: HashMap<ConnectionId, DependencyCondition>,
-  dep_meta_map: HashMap<DependencyId, DependencyExtraMeta>,
+  dep_meta_map: DashMap<DependencyId, DependencyExtraMeta>,
 }
 
 #[derive(Debug, Default)]
@@ -888,7 +901,7 @@ impl<'a> ModuleGraph<'a> {
   }
 
   /// refer https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/ModuleGraph.js#L582-L585
-  pub fn get_export_info(&mut self, module_id: ModuleIdentifier, export_name: &Atom) -> ExportInfo {
+  pub fn get_export_info(&self, module_id: ModuleIdentifier, export_name: &Atom) -> ExportInfo {
     let exports_info = self.get_exports_info(&module_id);
     exports_info.get_export_info(self, export_name)
   }
@@ -1047,12 +1060,26 @@ impl<'a> ModuleGraph<'a> {
 
   /// We can't insert all sort of things into one hashmap like javascript, so we create different
   /// hashmap to store different kinds of meta.
-  pub fn get_dep_meta_if_existing(&self, id: &DependencyId) -> Option<&DependencyExtraMeta> {
-    self.loop_partials(|p| p.dep_meta_map.get(id))
+  pub fn get_dep_meta_if_existing(
+    &self,
+    id: &DependencyId,
+  ) -> Option<Ref<DependencyId, DependencyExtraMeta>> {
+    if let Some(active) = &self.active
+      && let Some(r) = active.dep_meta_map.get(id)
+    {
+      return Some(r);
+    }
+
+    for item in self.partials.iter().rev() {
+      if let Some(r) = item.dep_meta_map.get(id) {
+        return Some(r);
+      }
+    }
+    None
   }
 
-  pub fn set_dep_meta(&mut self, dep_id: DependencyId, ids: Vec<Atom>) {
-    let Some(active_partial) = &mut self.active else {
+  pub fn set_dep_meta(&self, dep_id: DependencyId, ids: Vec<Atom>) {
+    let Some(active_partial) = &self.active else {
       panic!("should have active partial");
     };
     active_partial
@@ -1135,66 +1162,112 @@ impl<'a> ModuleGraph<'a> {
       .module_graph_module_by_identifier(module_identifier)
       .expect("should have mgm");
     self
-      .loop_partials(|p| p.exports_info_map.get(&mgm.exports))
+      .try_get_exports_info_by_id(&mgm.exports)
       .expect("should have exports info")
       .id()
   }
 
-  pub fn get_exports_info_by_id(&self, id: &ExportsInfo) -> &ExportsInfoData {
+  pub fn get_exports_info_by_id(&self, id: &ExportsInfo) -> ExportsInfoDataRef {
     self
       .try_get_exports_info_by_id(id)
       .expect("should have exports info")
   }
 
-  pub fn try_get_exports_info_by_id(&self, id: &ExportsInfo) -> Option<&ExportsInfoData> {
-    self.loop_partials(|p| p.exports_info_map.get(id))
+  pub fn try_get_exports_info_by_id(&self, id: &ExportsInfo) -> Option<ExportsInfoDataRef> {
+    if let Some(active) = &self.active
+      && let Some(r) = active.exports_info_map.get(id)
+    {
+      return Some(r);
+    }
+
+    for item in self.partials.iter().rev() {
+      if let Some(r) = item.exports_info_map.get(id) {
+        return Some(r);
+      }
+    }
+    None
   }
 
-  pub fn get_exports_info_mut_by_id(&mut self, id: &ExportsInfo) -> &mut ExportsInfoData {
-    self
-      .loop_partials_mut(
-        |p| p.exports_info_map.contains_key(id),
-        |p, search_result| {
-          p.exports_info_map.insert(*id, search_result);
-        },
-        |p| p.exports_info_map.get(id).cloned(),
-        |p| p.exports_info_map.get_mut(id),
-      )
-      .expect("should have exports info")
+  pub fn get_exports_info_mut_by_id(&self, id: &ExportsInfo) -> ExportsInfoDataRefMut {
+    let Some(active_partial) = &self.active else {
+      panic!("should have active partial");
+    };
+
+    let active_exist = active_partial.exports_info_map.contains_key(id);
+    if !active_exist {
+      let mut search_result = None;
+      for item in self.partials.iter().rev() {
+        if let Some(r) = item.exports_info_map.get(id) {
+          search_result = Some(r.clone());
+          break;
+        }
+      }
+      if let Some(search_result) = search_result {
+        active_partial.exports_info_map.insert(*id, search_result);
+      }
+    }
+
+    active_partial
+      .exports_info_map
+      .get_mut(id)
+      .expect("should have exports info data")
   }
 
-  pub fn set_exports_info(&mut self, id: ExportsInfo, info: ExportsInfoData) {
-    let Some(active_partial) = &mut self.active else {
+  pub fn set_exports_info(&self, id: ExportsInfo, info: ExportsInfoData) {
+    let Some(active_partial) = &self.active else {
       panic!("should have active partial");
     };
     active_partial.exports_info_map.insert(id, info);
   }
 
-  pub fn try_get_export_info_by_id(&self, id: &ExportInfo) -> Option<&ExportInfoData> {
-    self.loop_partials(|p| p.export_info_map.get(id))
+  pub fn try_get_export_info_by_id(&self, id: &ExportInfo) -> Option<ExportInfoDataRef> {
+    if let Some(active) = &self.active
+      && let Some(r) = active.export_info_map.get(id)
+    {
+      return Some(r);
+    }
+
+    for item in self.partials.iter().rev() {
+      if let Some(r) = item.export_info_map.get(id) {
+        return Some(r);
+      }
+    }
+    None
   }
 
-  pub fn get_export_info_by_id(&self, id: &ExportInfo) -> &ExportInfoData {
+  pub fn get_export_info_by_id(&self, id: &ExportInfo) -> ExportInfoDataRef {
     self
       .try_get_export_info_by_id(id)
       .expect("should have export info")
   }
 
-  pub fn get_export_info_mut_by_id(&mut self, id: &ExportInfo) -> &mut ExportInfoData {
-    self
-      .loop_partials_mut(
-        |p| p.export_info_map.contains_key(id),
-        |p, search_result| {
-          p.export_info_map.insert(*id, search_result);
-        },
-        |p| p.export_info_map.get(id).cloned(),
-        |p| p.export_info_map.get_mut(id),
-      )
-      .expect("should have export info")
+  pub fn get_export_info_mut_by_id(&self, id: &ExportInfo) -> ExportInfoDataRefMut {
+    let Some(active_partial) = &self.active else {
+      panic!("should have active partial");
+    };
+
+    let active_exist = active_partial.export_info_map.contains_key(id);
+    if !active_exist {
+      let mut search_result = None;
+      for item in self.partials.iter().rev() {
+        if let Some(r) = item.export_info_map.get(id) {
+          search_result = Some(r.clone());
+          break;
+        }
+      }
+      if let Some(search_result) = search_result {
+        active_partial.export_info_map.insert(*id, search_result);
+      }
+    }
+
+    active_partial
+      .export_info_map
+      .get_mut(id)
+      .expect("should have export info data")
   }
 
-  pub fn set_export_info(&mut self, id: ExportInfo, info: ExportInfoData) {
-    let Some(active_partial) = &mut self.active else {
+  pub fn set_export_info(&self, id: ExportInfo, info: ExportInfoData) {
+    let Some(active_partial) = &self.active else {
       panic!("should have active partial");
     };
     active_partial.export_info_map.insert(id, info);

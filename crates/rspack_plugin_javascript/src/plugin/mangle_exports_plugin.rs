@@ -77,7 +77,7 @@ impl Plugin for MangleExportsPlugin {
 }
 
 /// Compare function for sorting exports by name.
-fn compare_strings_numeric(a: Option<&Atom>, b: Option<&Atom>) -> std::cmp::Ordering {
+fn compare_strings_numeric(a: Option<Atom>, b: Option<Atom>) -> std::cmp::Ordering {
   a.cmp(&b)
 }
 static MANGLE_NAME_NORMAL_REG: LazyLock<Regex> =
@@ -110,7 +110,7 @@ fn mangle_exports_info(
     }
   }
 
-  for export_info in exports_info.owned_exports(mg).collect::<Vec<_>>() {
+  for export_info in exports_info.owned_exports(mg) {
     if !export_info.has_used_name(mg) {
       let name = export_info
         .name(mg)

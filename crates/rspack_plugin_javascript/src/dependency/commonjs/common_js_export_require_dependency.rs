@@ -115,7 +115,7 @@ impl CommonJsExportRequireDependency {
           if name == "__esModule" && is_namespace_import {
             exports.insert(name.to_owned());
           } else if let Some(imported_exports_info) = imported_exports_info {
-            let imported_export_info = imported_exports_info.get_read_only_export_info(mg, name);
+            let imported_export_info = imported_exports_info.get_read_only_export_info(mg, &name);
             if matches!(
               imported_export_info.provided(mg),
               Some(ExportInfoProvided::False)
@@ -142,7 +142,7 @@ impl CommonJsExportRequireDependency {
             continue;
           }
           if let Some(exports_info) = exports_info {
-            let export_info = exports_info.get_read_only_export_info(mg, name);
+            let export_info = exports_info.get_read_only_export_info(mg, &name);
             if matches!(export_info.get_used(mg, runtime), UsageState::Unused) {
               continue;
             }
@@ -304,12 +304,12 @@ impl Dependency for CommonJsExportRequireDependency {
     for export_info in exports_info.ordered_exports(mg) {
       let prefix = ids
         .iter()
+        .map(|i| i.to_owned())
         .chain(if let Some(name) = export_info.name(mg) {
           vec![name]
         } else {
           vec![]
         })
-        .map(|i| i.to_owned())
         .collect_vec();
       process_export_info(
         mg,

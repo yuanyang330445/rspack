@@ -318,7 +318,6 @@ impl HarmonyExportImportedSpecifierDependency {
           .into_iter()
           .take(other_star_exports.names_slice)
           .filter(|name| !ignored_exports.contains(name))
-          .cloned()
           .collect::<HashSet<_>>()
       });
     if !no_extra_exports && !no_extra_imports {
@@ -339,7 +338,7 @@ impl HarmonyExportImportedSpecifierDependency {
 
     if no_extra_imports {
       for export_info in exports_info.ordered_exports(module_graph) {
-        let export_name = export_info.name(module_graph).cloned().unwrap_or_default();
+        let export_name = export_info.name(module_graph).unwrap_or_default();
         if ignored_exports.contains(&export_name)
           || matches!(
             export_info.get_used(module_graph, runtime),
@@ -378,10 +377,7 @@ impl HarmonyExportImportedSpecifierDependency {
       }
     } else if no_extra_exports {
       for imported_export_info in imported_exports_info.ordered_exports(module_graph) {
-        let imported_export_info_name = imported_export_info
-          .name(module_graph)
-          .cloned()
-          .unwrap_or_default();
+        let imported_export_info_name = imported_export_info.name(module_graph).unwrap_or_default();
         if ignored_exports.contains(&imported_export_info_name)
           || matches!(
             imported_export_info.provided(module_graph),
@@ -427,10 +423,10 @@ impl HarmonyExportImportedSpecifierDependency {
     }
   }
 
-  pub fn discover_active_exports_from_other_star_exports<'a>(
+  pub fn discover_active_exports_from_other_star_exports(
     &self,
-    module_graph: &'a ModuleGraph,
-  ) -> Option<DiscoverActiveExportsFromOtherStarExportsRet<'a>> {
+    module_graph: &ModuleGraph,
+  ) -> Option<DiscoverActiveExportsFromOtherStarExportsRet> {
     if let Some(other_star_exports) = &self.other_star_exports {
       if other_star_exports.is_empty() {
         return None;
@@ -907,7 +903,7 @@ impl HarmonyExportImportedSpecifierDependency {
       );
       let imported_module = module_graph.get_module_by_dependency_id(&self.id)?;
       let exports_info = module_graph.get_exports_info(&imported_module.identifier());
-      let mut conflicts: IndexMap<&str, Vec<&Atom>, BuildHasherDefault<FxHasher>> =
+      let mut conflicts: IndexMap<&str, Vec<Atom>, BuildHasherDefault<FxHasher>> =
         IndexMap::default();
       for export_info in exports_info.ordered_exports(module_graph) {
         if !matches!(
@@ -922,10 +918,10 @@ impl HarmonyExportImportedSpecifierDependency {
         if name == "default" {
           continue;
         }
-        if self.active_exports(module_graph).contains(name) {
+        if self.active_exports(module_graph).contains(&name) {
           continue;
         }
-        if own_names.contains(&name) {
+        if own_names.contains(&&name) {
           continue;
         }
 
@@ -939,9 +935,9 @@ impl HarmonyExportImportedSpecifierDependency {
           Vec::new()
         };
         let Some(conflicting_dependency) = find_dependency_for_name(
-          potential_conflicts.names.iter().copied().enumerate(),
+          potential_conflicts.names.iter().enumerate(),
           potential_conflicts.dependency_indices.iter(),
-          name,
+          &name,
           dependencies.iter().copied(),
         ) else {
           continue;
@@ -992,8 +988,8 @@ impl HarmonyExportImportedSpecifierDependency {
 }
 
 #[derive(Debug)]
-pub struct DiscoverActiveExportsFromOtherStarExportsRet<'a> {
-  names: Vec<&'a Atom>,
+pub struct DiscoverActiveExportsFromOtherStarExportsRet {
+  names: Vec<Atom>,
   names_slice: usize,
   pub dependency_indices: Vec<usize>,
   pub dependency_index: usize,
@@ -1478,14 +1474,14 @@ pub struct StarReexportsInfo {
 }
 
 /// return (names, dependency_indices)
-fn determine_export_assignments<'a>(
-  module_graph: &'a ModuleGraph,
+fn determine_export_assignments(
+  module_graph: &ModuleGraph,
   dependencies: &[DependencyId],
   additional_dependency: Option<DependencyId>,
-) -> (Vec<&'a Atom>, Vec<usize>) {
+) -> (Vec<Atom>, Vec<usize>) {
   // https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/dependencies/HarmonyExportImportedSpecifierDependency.js#L109
   // js `Set` keep the insertion order, use `IndexSet` to align there behavior
-  let mut names: IndexSet<&Atom, BuildHasherDefault<FxHasher>> = IndexSet::default();
+  let mut names: IndexSet<Atom, BuildHasherDefault<FxHasher>> = IndexSet::default();
   let mut dependency_indices =
     Vec::with_capacity(dependencies.len() + usize::from(additional_dependency.is_some()));
 
@@ -1501,7 +1497,7 @@ fn determine_export_assignments<'a>(
           export_info.provided(module_graph),
           Some(ExportInfoProvided::True)
         ) && export_info_name != "default"
-          && !names.contains(export_info_name)
+          && !names.contains(&export_info_name)
         {
           names.insert(export_info_name);
         }

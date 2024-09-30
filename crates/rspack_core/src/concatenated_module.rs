@@ -932,10 +932,7 @@ impl Module for ConcatenatedModule {
     let mut exports_final_names: Vec<(String, String)> = vec![];
 
     for export_info in exports_info.ordered_exports(&module_graph) {
-      let name = export_info
-        .name(&module_graph)
-        .cloned()
-        .unwrap_or("".into());
+      let name = export_info.name(&module_graph).unwrap_or("".into());
       if matches!(
         export_info.provided(&module_graph),
         Some(ExportInfoProvided::False)
@@ -1098,10 +1095,7 @@ impl Module for ConcatenatedModule {
             let final_name = Self::get_final_name(
               &compilation.get_module_graph(),
               module_info_id,
-              vec![export_info
-                .name(&module_graph)
-                .cloned()
-                .unwrap_or("".into())],
+              vec![export_info.name(&module_graph).unwrap_or("".into())],
               &mut module_to_info_map,
               runtime,
               &mut needed_namespace_objects,

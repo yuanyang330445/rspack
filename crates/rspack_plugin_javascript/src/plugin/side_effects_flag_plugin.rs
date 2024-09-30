@@ -712,12 +712,18 @@ fn optimize_dependencies(&self, compilation: &mut Compilation) -> Result<Option<
       };
       let origin_module = connection.original_module_identifier;
       let module_identifier = *connection.module_identifier();
-      let rewrite_dep_target_module = do_optimize_incoming_connection(
-        &mut module_graph,
-        dep_id,
-        origin_module,
-        module_identifier,
-      );
+      let rewrite_dep_target_module =
+        do_optimize_incoming_connection(&module_graph, dep_id, origin_module, module_identifier);
+      if let Some(new_module_identifier) = rewrite_dep_target_module {
+        module_graph.update_module(&dep_id, &new_module_identifier);
+        if let Some(ModuleOptimizeStats::WaitingUnoptimizedIncomming(count)) =
+          optimize_stats_map.get_mut(&new_module_identifier)
+        {
+          *count += 1;
+        }
+        optimize_queue.push_back(dep_id);
+      }
+
       let next_deps = match optimize_stats_map.entry(module_identifier) {
         Entry::Occupied(mut entry) => match entry.get_mut() {
           ModuleOptimizeStats::WaitingUnoptimizedIncomming(count) => {
@@ -748,14 +754,6 @@ fn optimize_dependencies(&self, compilation: &mut Compilation) -> Result<Option<
           }
         }
       };
-      if let Some(new_module_identifier) = rewrite_dep_target_module {
-        if let Some(ModuleOptimizeStats::WaitingUnoptimizedIncomming(count)) =
-          optimize_stats_map.get_mut(&new_module_identifier)
-        {
-          *count += 1;
-        }
-        optimize_queue.push_back(dep_id);
-      }
 
       optimize_queue.extend(next_deps);
     }
@@ -798,7 +796,7 @@ impl Plugin for SideEffectsFlagPlugin {
 }
 
 fn do_optimize_incoming_connection(
-  module_graph: &mut ModuleGraph,
+  module_graph: &ModuleGraph,
   dep_id: DependencyId,
   origin_module: Option<ModuleIdentifier>,
   module_identifier: ModuleIdentifier,
@@ -841,62 +839,61 @@ fn do_optimize_incoming_connection(
           .get_side_effects_connection_state(mg, &mut IdentifierSet::default())
           == ConnectionState::Bool(false)
       }),
-      Arc::new(
-        move |target: &ResolvedExportInfoTarget, mg: &mut ModuleGraph| {
-          mg.update_module(&dep_id, &target.module)?;
-          // TODO: Explain https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/optimize/SideEffectsFlagPlugin.js#L303-L306
-          let ids = dep_id.get_ids(mg);
-          let processed_ids = target
-            .export
-            .as_ref()
-            .map(|item| {
-              let mut ret = Vec::from_iter(item.iter().cloned());
-              ret.extend_from_slice(ids.get(1..).unwrap_or_default());
-              ret
-            })
-            .unwrap_or_else(|| ids.get(1..).unwrap_or_default().to_vec());
-          dep_id.set_ids(processed_ids, mg);
-          Some(dep_id)
-        },
-      ),
-    );
-    // target is_some means updated dep_id target module
-    if let Some(ResolvedExportInfoTarget { module, .. }) = target {
-      return Some(module);
-    }
-    return None;
-  }
-
-  let ids = dep_id.get_ids(module_graph);
-  if !ids.is_empty() {
-    let cur_exports_info = module_graph.get_exports_info(&module_identifier);
-    let export_info = cur_exports_info.get_export_info(module_graph, &ids[0]);
-
-    let target = export_info.get_target(
-      module_graph,
-      Some(Arc::new(
-        |target: &ResolvedExportInfoTarget, mg: &ModuleGraph| {
-          mg.module_by_identifier(&target.module)
-            .expect("should have module graph")
-            .get_side_effects_connection_state(mg, &mut IdentifierSet::default())
-            == ConnectionState::Bool(false)
-        },
-      )),
+      Arc::new(move |target: &ResolvedExportInfoTarget, mg: &ModuleGraph| {
+        if &target.module == &module_identifier {
+          return None;
+        }
+        // TODO: Explain https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/optimize/SideEffectsFlagPlugin.js#L303-L306
+        let ids = dep_id.get_ids(mg);
+        let processed_ids = target
+          .export
+          .as_ref()
+          .map(|item| {
+            let mut ret = Vec::from_iter(item.iter().cloned());
+            ret.extend_from_slice(ids.get(1..).unwrap_or_default());
+            ret
+          })
+          .unwrap_or_else(|| ids.get(1..).unwrap_or_default().to_vec());
+        dep_id.set_ids(processed_ids, mg);
+        Some(dep_id)
+      }),
     )?;
-    module_graph.update_module(&dep_id, &target.module)?;
-    // TODO: Explain https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/optimize/SideEffectsFlagPlugin.js#L303-L306
-    let processed_ids = target
-      .export
-      .map(|mut item| {
-        item.extend_from_slice(&ids[1..]);
-        item
-      })
-      .unwrap_or_else(|| ids[1..].to_vec());
-    dep_id.set_ids(processed_ids, module_graph);
-    // updated dep_id target module
-    return Some(target.module);
+    // target is_some means updated dep_id target module
+    Some(target.module)
+  } else {
+    let ids = dep_id.get_ids(module_graph);
+    if !ids.is_empty() {
+      let cur_exports_info = module_graph.get_exports_info(&module_identifier);
+      let export_info = cur_exports_info.get_export_info(module_graph, &ids[0]);
+
+      let target = export_info.get_target(
+        module_graph,
+        Some(Arc::new(
+          |target: &ResolvedExportInfoTarget, mg: &ModuleGraph| {
+            mg.module_by_identifier(&target.module)
+              .expect("should have module graph")
+              .get_side_effects_connection_state(mg, &mut IdentifierSet::default())
+              == ConnectionState::Bool(false)
+          },
+        )),
+      )?;
+      if &target.module == &module_identifier {
+        return None;
+      }
+      // TODO: Explain https://github.com/webpack/webpack/blob/ac7e531436b0d47cd88451f497cdfd0dad41535d/lib/optimize/SideEffectsFlagPlugin.js#L303-L306
+      let processed_ids = target
+        .export
+        .map(|mut item| {
+          item.extend_from_slice(&ids[1..]);
+          item
+        })
+        .unwrap_or_else(|| ids[1..].to_vec());
+      dep_id.set_ids(processed_ids, module_graph);
+      // updated dep_id target module
+      return Some(target.module);
+    }
+    None
   }
-  None
 }
 
 #[cfg(test)]
