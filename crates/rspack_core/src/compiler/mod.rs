@@ -1,6 +1,6 @@
 mod compilation;
 mod hmr;
-mod make;
+pub mod make;
 mod module_executor;
 use std::sync::Arc;
 
@@ -149,8 +149,8 @@ impl Compiler {
     // TODO: clear the outdated cache entries in resolver,
     // TODO: maybe it's better to use external entries.
     self.plugin_driver.resolver_factory.clear_cache();
-
     let module_executor = ModuleExecutor::default();
+    // if enable presistent cache
     fast_set(
       &mut self.compilation,
       Compilation::new(
