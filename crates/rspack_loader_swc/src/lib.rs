@@ -140,7 +140,6 @@ impl SwcLoader {
     let program = &built.program;
 
     if emit_dts && program.is_module() {
-      let mut module = program.clone().expect_module();
       let mut checker = FastDts::new(Arc::new(swc_core::common::FileName::Custom(
         filename.clone(),
       )));
@@ -169,7 +168,8 @@ impl SwcLoader {
       };
 
       if let Some(dts_filename) = dts_filename {
-        let issues = checker.transform(&mut module);
+        let mut program = program.clone();
+        let issues = checker.transform(&mut program);
         let should_abort = *abort_on_error && !issues.is_empty();
 
         if should_abort {
@@ -190,6 +190,7 @@ impl SwcLoader {
         }
 
         if *emit {
+          let module = program.expect_module();
           let dts_code = to_code_with_comments(Some(&built.comments), &module);
           loader_context
             .parse_meta
