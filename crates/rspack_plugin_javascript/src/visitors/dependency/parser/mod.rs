@@ -308,6 +308,12 @@ impl<'parser> JavascriptParser<'parser> {
       plugins.push(Box::new(parser_plugin::ESMExportDependencyParserPlugin));
     }
 
+    if let Some(library) = &compiler_options.output.library {
+      if library.library_type == "modern-module" {
+        plugins.push(Box::new(parser_plugin::ModernModulePlugin::new()));
+      }
+    }
+
     if module_type.is_js_auto() || module_type.is_js_dynamic() {
       plugins.push(Box::new(parser_plugin::CommonJsImportsParserPlugin));
       plugins.push(Box::new(parser_plugin::CommonJsPlugin));
