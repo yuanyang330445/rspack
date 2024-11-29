@@ -12,6 +12,7 @@ async-trait = { workspace = true }
 bitflags = { workspace = true }
 cow-utils = { workspace = true }
 dashmap = { workspace = true, features = ["rayon"] }
+deepsize = "0.2.0"
 derivative = { workspace = true }
 dyn-clone = "1.0.17"
 either = { workspace = true }

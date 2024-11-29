@@ -10,7 +10,7 @@ type Storage = dyn storage::Storage<RuntimeGlobals>;
 
 #[derive(Debug)]
 pub struct ProcessRuntimeRequirementsOccasion {
-  storage: Option<Box<Storage>>,
+  pub storage: Option<Box<Storage>>,
 }
 
 impl ProcessRuntimeRequirementsOccasion {

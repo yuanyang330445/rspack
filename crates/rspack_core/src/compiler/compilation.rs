@@ -7,6 +7,7 @@ use std::{
 };
 
 use dashmap::DashSet;
+use deepsize::DeepSizeOf;
 use indexmap::{IndexMap, IndexSet};
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -2144,6 +2145,24 @@ pub struct AssetInfo {
   pub is_over_size_limit: Option<bool>,
 }
 
+impl DeepSizeOf for AssetInfo {
+  fn deep_size_of_children(&self, context: &mut deepsize::Context) -> usize {
+    self.immutable.deep_size_of_children(context)
+      + self.minimized.deep_size_of_children(context)
+      + self.full_hash.deep_size_of_children(context)
+      + self.chunk_hash.deep_size_of_children(context)
+      + self.content_hash.deep_size_of_children(context)
+      + self.source_filename.deep_size_of_children(context)
+      + self.development.deep_size_of_children(context)
+      + self.hot_module_replacement.deep_size_of_children(context)
+      + self.javascript_module.deep_size_of_children(context)
+      + self.related.deep_size_of_children(context)
+      + self.version.deep_size_of_children(context)
+      + self.css_unused_idents.deep_size_of_children(context)
+      + self.is_over_size_limit.deep_size_of_children(context)
+  }
+}
+
 impl AssetInfo {
   pub fn with_minimized(mut self, v: Option<bool>) -> Self {
     self.minimized = v;
@@ -2242,6 +2261,12 @@ pub struct AssetInfoRelated {
   pub source_map: Option<String>,
 }
 
+impl DeepSizeOf for AssetInfoRelated {
+  fn deep_size_of_children(&self, context: &mut deepsize::Context) -> usize {
+    self.source_map.deep_size_of_children(context)
+  }
+}
+
 impl AssetInfoRelated {
   pub fn merge_another(&mut self, another: AssetInfoRelated) {
     if let Some(source_map) = another.source_map {
@@ -2330,6 +2355,16 @@ pub struct RenderManifestEntry {
   // hash?: string;
   pub(crate) auxiliary: bool,
   has_filename: bool, /* webpack only asset has filename, js/css/wasm has filename template */
+}
+
+impl DeepSizeOf for RenderManifestEntry {
+  fn deep_size_of_children(&self, context: &mut deepsize::Context) -> usize {
+    self.source.size()
+      + self.filename.deep_size_of_children(context)
+      + self.info.deep_size_of_children(context)
+      + self.auxiliary.deep_size_of_children(context)
+      + self.has_filename.deep_size_of_children(context)
+  }
 }
 
 impl RenderManifestEntry {

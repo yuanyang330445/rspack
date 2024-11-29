@@ -8,7 +8,7 @@ type Storage = dyn storage::Storage<Vec<RenderManifestEntry>>;
 
 #[derive(Debug)]
 pub struct CreateChunkAssetsOccasion {
-  storage: Option<Box<Storage>>,
+  pub storage: Option<Box<Storage>>,
 }
 
 impl CreateChunkAssetsOccasion {

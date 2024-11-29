@@ -4,6 +4,7 @@ use std::ops::{Deref, DerefMut};
 use std::sync::atomic::AtomicU32;
 
 use anymap::CloneAny;
+use deepsize::DeepSizeOf;
 use rspack_collections::IdentifierMap;
 use rspack_hash::{HashDigest, HashFunction, HashSalt, RspackHash, RspackHashDigest};
 use rspack_sources::BoxSource;
@@ -128,6 +129,14 @@ pub struct CodeGenerationResult {
   pub hash: Option<RspackHashDigest>,
   pub id: CodeGenResultId,
   pub concatenation_scope: Option<ConcatenationScope>,
+}
+
+impl DeepSizeOf for CodeGenerationResult {
+  fn deep_size_of_children(&self, context: &mut deepsize::Context) -> usize {
+    self.inner.iter().fold(0, |sum, (key, val)| {
+      sum + size_of::<SourceType>() + val.size()
+    }) + self.inner.capacity() * size_of::<(SourceType, BoxSource)>()
+  }
 }
 
 impl CodeGenerationResult {

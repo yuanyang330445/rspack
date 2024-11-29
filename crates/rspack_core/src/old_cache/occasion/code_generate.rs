@@ -8,7 +8,7 @@ type Storage = dyn storage::Storage<CodeGenerationResult>;
 
 #[derive(Debug)]
 pub struct CodeGenerateOccasion {
-  storage: Option<Box<Storage>>,
+  pub storage: Option<Box<Storage>>,
 }
 
 impl CodeGenerateOccasion {

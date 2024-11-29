@@ -9,13 +9,13 @@ use rspack_napi::napi::bindgen_prelude::*;
 
 #[napi(object)]
 #[derive(Clone)]
-pub struct JsCompatSource {
-  pub source: Either<String, Buffer>,
+pub struct JsCompatSource<'s> {
+  pub source: Either<String, BufferSlice<'s>>,
   pub map: Option<String>,
 }
 
-impl From<JsCompatSource> for BoxSource {
-  fn from(value: JsCompatSource) -> Self {
+impl<'s> From<JsCompatSource<'s>> for BoxSource {
+  fn from(value: JsCompatSource<'s>) -> Self {
     match value.source {
       Either::A(string) => {
         if let Some(map) = value.map {
@@ -45,7 +45,7 @@ impl ToJsCompatSource for RawSource {
   fn to_js_compat_source(&self) -> Result<JsCompatSource> {
     Ok(JsCompatSource {
       source: if self.is_buffer() {
-        Either::B(self.buffer().to_vec().into())
+        Either::B(self.buffer())
       } else {
         Either::A(self.source().to_string())
       },

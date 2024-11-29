@@ -7,6 +7,7 @@
 use std::ptr;
 
 use napi::sys::{napi_env, napi_value};
+use napi::Ref;
 use napi::{bindgen_prelude::ToNapiValue, check_status, sys, Result};
 
 pub struct Ref {

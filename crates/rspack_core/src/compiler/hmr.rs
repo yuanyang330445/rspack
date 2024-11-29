@@ -5,10 +5,15 @@ use rspack_collections::{Identifier, IdentifierMap};
 use rspack_error::Result;
 use rspack_hash::RspackHashDigest;
 use rspack_sources::Source;
+use rspack_util::ext::AsAny;
 use rustc_hash::FxHashSet as HashSet;
 
+use super::RenderManifestEntry;
 use crate::{
-  fast_set, incremental::IncrementalPasses, ChunkKind, Compilation, Compiler, ModuleExecutor,
+  fast_set,
+  incremental::IncrementalPasses,
+  old_cache::{storage::MemoryStorage, Cache},
+  ChunkKind, CodeGenerationResult, Compilation, Compiler, ModuleExecutor, RuntimeGlobals,
   RuntimeSpec,
 };
 
@@ -77,6 +82,26 @@ impl Compiler {
         removed_files,
         self.input_filesystem.clone(),
       );
+
+      if let Some(storage) = &new_compilation.old_cache.code_generate_occasion.storage {
+        println!("codegen:{:#?}", storage.keys());
+      }
+
+      // if let Some(storage) = &new_compilation
+      //   .old_cache
+      //   .create_chunk_assets_occasion
+      //   .storage
+      // {
+      //   println!("chunk:{:#?}", storage.keys());
+      // }
+
+      // if let Some(storage) = &new_compilation
+      //   .old_cache
+      //   .process_runtime_requirements_occasion
+      //   .storage
+      // {
+      //   println!("runtime:{:#?}", storage.keys());
+      // }
 
       new_compilation.hot_index = self.compilation.hot_index + 1;
 

@@ -1,6 +1,7 @@
 use std::fmt;
 
 use bitflags::bitflags;
+use deepsize::DeepSizeOf;
 use swc_core::ecma::atoms::Atom;
 
 bitflags! {
@@ -250,6 +251,12 @@ bitflags! {
     const RSPACK_UNIQUE_ID = 1 << 65;
 
     const HAS_FETCH_PRIORITY = 1 << 66;
+  }
+}
+
+impl DeepSizeOf for RuntimeGlobals {
+  fn deep_size_of_children(&self, _context: &mut deepsize::Context) -> usize {
+    16
   }
 }
 

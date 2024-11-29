@@ -11,7 +11,7 @@ use super::Storage;
 #[derive(Debug, Default)]
 pub struct MemoryStorage {
   #[allow(clippy::type_complexity)]
-  inner: Mutex<HashMap<String, HashMap<Vec<u8>, Vec<u8>>>>,
+  pub inner: Mutex<HashMap<String, HashMap<Vec<u8>, Vec<u8>>>>,
 }
 
 impl Storage for MemoryStorage {

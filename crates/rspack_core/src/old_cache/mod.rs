@@ -10,7 +10,7 @@ use crate::CompilerOptions;
 
 mod local;
 mod occasion;
-mod storage;
+pub mod storage;
 pub use local::*;
 use occasion::{
   CodeGenerateOccasion, CreateChunkAssetsOccasion, ProcessRuntimeRequirementsOccasion,
