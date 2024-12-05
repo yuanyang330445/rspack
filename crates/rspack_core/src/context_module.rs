@@ -441,6 +441,10 @@ impl ContextModule {
               has_multiple_or_no_chunks = true;
             }
             chunks
+          })
+          .or_else(|| {
+            has_multiple_or_no_chunks = true;
+            None
           });
         let user_request = compilation
           .get_module_graph()
@@ -490,6 +494,7 @@ impl ContextModule {
       })
       .collect::<HashMap<_, _>>();
     let chunks_start_position = if has_fake_map { 2 } else { 1 };
+
     let request_prefix = if has_no_chunk {
       "Promise.resolve()".to_string()
     } else if has_multiple_or_no_chunks {
