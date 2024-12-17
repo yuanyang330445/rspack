@@ -1,7 +1,5 @@
 import assert from "node:assert";
 import {
-	type JsLibraryName,
-	type JsLibraryOptions,
 	type RawAssetGeneratorDataUrlFnCtx,
 	type RawAssetGeneratorOptions,
 	type RawAssetInlineGeneratorOptions,
@@ -14,10 +12,8 @@ import {
 	type RawCssModuleGeneratorOptions,
 	type RawCssModuleParserOptions,
 	type RawCssParserOptions,
-	type RawExperiments,
 	type RawFuncUseCtx,
 	type RawGeneratorOptions,
-	type RawIncremental,
 	type RawJavascriptParserOptions,
 	type RawModuleRule,
 	type RawModuleRuleUse,
@@ -42,7 +38,6 @@ import {
 	createRawModuleRuleUses
 } from "./adapterRuleUse";
 import type {
-	ExperimentCacheNormalized,
 	ExperimentsNormalized,
 	ModuleOptionsNormalized,
 	OutputNormalized,
@@ -55,16 +50,11 @@ import type {
 	AssetParserDataUrl,
 	AssetParserOptions,
 	AssetResourceGeneratorOptions,
-	ChunkLoading,
-	CrossOriginLoading,
 	CssAutoGeneratorOptions,
 	CssGeneratorOptions,
 	CssParserOptions,
 	GeneratorOptionsByModuleType,
-	Incremental,
 	JavascriptParserOptions,
-	LibraryName,
-	LibraryOptions,
 	Node,
 	Optimization,
 	ParserOptionsByModuleType,
@@ -73,9 +63,7 @@ import type {
 	RuleSetCondition,
 	RuleSetLogicalConditions,
 	RuleSetRule,
-	SnapshotOptions,
-	StatsValue,
-	Target
+	StatsValue
 } from "./types";
 
 export type { LoaderContext, LoaderDefinition, LoaderDefinitionFunction };
@@ -84,31 +72,25 @@ export const getRawOptions = (
 	options: RspackOptionsNormalized,
 	compiler: Compiler
 ): RawOptions => {
-	assert(
-		!isNil(options.context) && !isNil(options.devtool) && !isNil(options.cache),
-		"context, devtool, cache should not be nil after defaults"
-	);
-	const devtool = options.devtool === false ? "" : options.devtool;
 	const mode = options.mode;
 	const experiments = getRawExperiments(options.experiments);
 	return {
 		mode,
-		target: getRawTarget(options.target),
-		context: options.context,
-		output: getRawOutput(options.output),
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		context: options.context!,
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		output: options.output as Required<OutputNormalized>,
 		resolve: getRawResolve(options.resolve),
 		resolveLoader: getRawResolve(options.resolveLoader),
 		module: getRawModule(options.module, {
 			compiler,
-			devtool,
 			mode,
-			context: options.context,
+			// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+			context: options.context!,
 			experiments
 		}),
-		devtool,
 		optimization: getRawOptimization(options.optimization),
 		stats: getRawStats(options.stats),
-		snapshot: getRawSnapshotOptions(options.snapshot),
 		cache: {
 			type: options.cache ? "memory" : "disable",
 			// TODO: implement below cache options
@@ -131,16 +113,6 @@ export const getRawOptions = (
 		__references: {}
 	};
 };
-
-function getRawTarget(target: Target | undefined): RawOptions["target"] {
-	if (!target) {
-		return [];
-	}
-	if (typeof target === "string") {
-		return [target];
-	}
-	return target;
-}
 
 function getRawExtensionAlias(
 	alias: Resolve["extensionAlias"] = {}
@@ -201,128 +173,6 @@ export function getRawResolve(resolve: Resolve): RawOptions["resolve"] {
 		tsconfig: getRawTsConfig(resolve.tsConfig),
 		byDependency: getRawResolveByDependency(resolve.byDependency)
 	};
-}
-
-function getRawCrossOriginLoading(
-	crossOriginLoading: CrossOriginLoading
-): RawOptions["output"]["crossOriginLoading"] {
-	if (typeof crossOriginLoading === "boolean") {
-		return { type: "bool", boolPayload: crossOriginLoading };
-	}
-	return { type: "string", stringPayload: crossOriginLoading };
-}
-
-function getRawOutput(output: OutputNormalized): RawOptions["output"] {
-	const chunkLoading = output.chunkLoading!;
-	const wasmLoading = output.wasmLoading!;
-	const workerChunkLoading = output.workerChunkLoading!;
-	const workerWasmLoading = output.workerWasmLoading!;
-	return {
-		path: output.path!,
-		pathinfo: output.pathinfo!,
-		publicPath: output.publicPath!,
-		clean: output.clean!,
-		assetModuleFilename: output.assetModuleFilename!,
-		filename: output.filename!,
-		chunkFilename: output.chunkFilename!,
-		chunkLoading: getRawChunkLoading(chunkLoading),
-		crossOriginLoading: getRawCrossOriginLoading(output.crossOriginLoading!),
-		cssFilename: output.cssFilename!,
-		cssChunkFilename: output.cssChunkFilename!,
-		hotUpdateChunkFilename: output.hotUpdateChunkFilename!,
-		hotUpdateMainFilename: output.hotUpdateMainFilename!,
-		hotUpdateGlobal: output.hotUpdateGlobal!,
-		uniqueName: output.uniqueName!,
-		chunkLoadingGlobal: output.chunkLoadingGlobal!,
-		enabledLibraryTypes: output.enabledLibraryTypes,
-		library: output.library && getRawLibrary(output.library),
-		strictModuleErrorHandling: output.strictModuleErrorHandling!,
-		globalObject: output.globalObject!,
-		importFunctionName: output.importFunctionName!,
-		importMetaName: output.importMetaName!,
-		iife: output.iife!,
-		module: output.module!,
-		wasmLoading: wasmLoading === false ? "false" : wasmLoading,
-		enabledWasmLoadingTypes: output.enabledWasmLoadingTypes!,
-		enabledChunkLoadingTypes: output.enabledChunkLoadingTypes!,
-		webassemblyModuleFilename: output.webassemblyModuleFilename!,
-		trustedTypes: output.trustedTypes!,
-		sourceMapFilename: output.sourceMapFilename!,
-		hashFunction: output.hashFunction!,
-		hashDigest: output.hashDigest!,
-		hashDigestLength: output.hashDigestLength!,
-		hashSalt: output.hashSalt!,
-		asyncChunks: output.asyncChunks!,
-		workerChunkLoading:
-			workerChunkLoading === false ? "false" : workerChunkLoading,
-		workerWasmLoading:
-			workerWasmLoading === false ? "false" : workerWasmLoading,
-		workerPublicPath: output.workerPublicPath!,
-		scriptType: output.scriptType === false ? "false" : output.scriptType!,
-		charset: output.charset!,
-		chunkLoadTimeout: output.chunkLoadTimeout!,
-		environment: output.environment!,
-		compareBeforeEmit: output.compareBeforeEmit!
-	};
-}
-
-export function getRawLibrary(library: LibraryOptions): JsLibraryOptions {
-	const {
-		type,
-		name,
-		export: libraryExport,
-		umdNamedDefine,
-		auxiliaryComment,
-		amdContainer
-	} = library;
-	return {
-		amdContainer,
-		auxiliaryComment:
-			typeof auxiliaryComment === "string"
-				? {
-						commonjs: auxiliaryComment,
-						commonjs2: auxiliaryComment,
-						amd: auxiliaryComment,
-						root: auxiliaryComment
-					}
-				: auxiliaryComment,
-		libraryType: type,
-		name: isNil(name) ? name : getRawLibraryName(name),
-		export:
-			Array.isArray(libraryExport) || libraryExport == null
-				? libraryExport
-				: [libraryExport],
-		umdNamedDefine
-	};
-}
-
-function getRawLibraryName(name: LibraryName): JsLibraryName {
-	if (typeof name === "string") {
-		return {
-			type: "string",
-			stringPayload: name
-		};
-	}
-	if (Array.isArray(name)) {
-		return {
-			type: "array",
-			arrayPayload: name
-		};
-	}
-	if (typeof name === "object" && !Array.isArray(name)) {
-		return {
-			type: "umdObject",
-			umdObjectPayload: {
-				commonjs: name.commonjs,
-				root:
-					Array.isArray(name.root) || isNil(name.root)
-						? name.root
-						: [name.root],
-				amd: name.amd
-			}
-		};
-	}
-	throw new Error("unreachable");
 }
 
 function getRawModule(
@@ -864,30 +714,18 @@ function getRawCssAutoOrModuleGeneratorOptions(
 function getRawOptimization(
 	optimization: Optimization
 ): RawOptions["optimization"] {
-	assert(
-		!isNil(optimization.removeAvailableModules) &&
-			!isNil(optimization.sideEffects) &&
-			!isNil(optimization.realContentHash) &&
-			!isNil(optimization.providedExports) &&
-			!isNil(optimization.usedExports) &&
-			!isNil(optimization.innerGraph) &&
-			"optimization.moduleIds, optimization.removeAvailableModules, optimization.removeEmptyChunks, optimization.sideEffects, optimization.realContentHash, optimization.providedExports, optimization.usedExports, optimization.innerGraph, optimization.concatenateModules should not be nil after defaults"
-	);
 	return {
-		removeAvailableModules: optimization.removeAvailableModules,
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		removeAvailableModules: optimization.removeAvailableModules!,
 		sideEffects: String(optimization.sideEffects),
 		usedExports: String(optimization.usedExports),
-		providedExports: optimization.providedExports,
-		innerGraph: optimization.innerGraph,
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		providedExports: optimization.providedExports!,
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		innerGraph: optimization.innerGraph!,
 		concatenateModules: !!optimization.concatenateModules,
 		mangleExports: String(optimization.mangleExports)
 	};
-}
-
-function getRawSnapshotOptions(
-	_snapshot: SnapshotOptions
-): RawOptions["snapshot"] {
-	return {};
 }
 
 function getRawExperiments(
@@ -895,62 +733,20 @@ function getRawExperiments(
 ): RawOptions["experiments"] {
 	const { topLevelAwait, layers, incremental, rspackFuture, cache } =
 		experiments;
-	assert(
-		!isNil(topLevelAwait) &&
-			!isNil(rspackFuture) &&
-			!isNil(layers) &&
-			!isNil(incremental)
-	);
 
 	return {
-		layers,
-		topLevelAwait,
-		cache: getRawExperimentCache(cache),
-		incremental: getRawIncremental(incremental),
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		layers: layers!,
+		// SAFETY: applied default value in `applyRspackOptionsDefaults`.
+		topLevelAwait: topLevelAwait!,
+		cache: cache!,
+		incremental: incremental,
 		rspackFuture: getRawRspackFutureOptions(rspackFuture)
 	};
 }
 
-function getRawExperimentCache(
-	cache?: ExperimentCacheNormalized
-): RawExperiments["cache"] {
-	if (cache === undefined) {
-		throw new Error("experiment cache can not be undefined");
-	}
-	if (typeof cache === "boolean") {
-		return {
-			type: cache ? "memory" : "disable"
-		};
-	}
-	return cache;
-}
-
-function getRawIncremental(
-	incremental: false | Incremental
-): RawIncremental | undefined {
-	if (incremental === false) {
-		return undefined;
-	}
-	return {
-		make: incremental.make!,
-		inferAsyncModules: incremental.inferAsyncModules!,
-		providedExports: incremental.providedExports!,
-		dependenciesDiagnostics: incremental.dependenciesDiagnostics!,
-		buildChunkGraph: incremental.buildChunkGraph!,
-		moduleIds: incremental.moduleIds!,
-		chunkIds: incremental.chunkIds!,
-		modulesHashes: incremental.modulesHashes!,
-		modulesCodegen: incremental.modulesCodegen!,
-		modulesRuntimeRequirements: incremental.modulesRuntimeRequirements!,
-		chunksRuntimeRequirements: incremental.chunksRuntimeRequirements!,
-		chunksHashes: incremental.chunksHashes!,
-		chunksRender: incremental.chunksRender!,
-		emitAssets: incremental.emitAssets!
-	};
-}
-
 function getRawRspackFutureOptions(
-	future: RspackFutureOptions
+	future?: RspackFutureOptions
 ): RawRspackFuture {
 	return {};
 }
@@ -974,8 +770,4 @@ function getRawStats(stats: StatsValue): RawOptions["stats"] {
 	return {
 		colors: statsOptions.colors ?? false
 	};
-}
-
-export function getRawChunkLoading(chunkLoading: ChunkLoading) {
-	return chunkLoading === false ? "false" : chunkLoading;
 }

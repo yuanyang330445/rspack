@@ -32,7 +32,7 @@ export declare class EntryOptionsDto {
   get runtime(): false | string | undefined
   set runtime(chunkLoading: boolean | string | undefined)
   get chunkLoading(): string | undefined
-  set chunkLoading(chunkLoading: string | undefined)
+  set chunkLoading(chunkLoading?: RawChunkLoading | undefined | null)
   get asyncChunks(): boolean | undefined
   set asyncChunks(asyncChunks: boolean | undefined)
   get baseUri(): string | undefined
@@ -612,7 +612,7 @@ export interface JsEntryData {
 export interface JsEntryOptions {
   name?: string
   runtime?: false | string
-  chunkLoading?: string
+  chunkLoading?: RawChunkLoading
   asyncChunks?: boolean
   publicPath?: "auto" | JsFilename
   baseUri?: string
@@ -686,7 +686,7 @@ export interface JsLibraryAuxiliaryComment {
 export interface JsLibraryCustomUmdObject {
   amd?: string
   commonjs?: string
-  root?: Array<string>
+  root?: Array<string> | string
 }
 
 export interface JsLibraryName {
@@ -697,11 +697,11 @@ export interface JsLibraryName {
 }
 
 export interface JsLibraryOptions {
-  name?: JsLibraryName
-  export?: Array<string>
-  libraryType: string
+  name?: string | Array<string> | JsLibraryCustomUmdObject
+  export?: Array<string> | string
+  type: string
   umdNamedDefine?: boolean
-  auxiliaryComment?: JsLibraryAuxiliaryComment
+  auxiliaryComment?: string | JsLibraryAuxiliaryComment
   amdContainer?: string
 }
 
@@ -1274,12 +1274,6 @@ export interface RawCopyRspackPluginOptions {
   patterns: Array<RawCopyPattern>
 }
 
-export interface RawCrossOriginLoading {
-  type: "bool" | "string"
-  stringPayload?: string
-  boolPayload?: boolean
-}
-
 export interface RawCssAutoGeneratorOptions {
   exportsConvention?: "as-is" | "camel-case" | "camel-case-only" | "dashes" | "dashes-only"
   exportsOnly?: boolean
@@ -1381,8 +1375,8 @@ export interface RawEvalDevToolModulePluginOptions {
   sourceUrlComment?: string
 }
 
-export interface RawExperimentCacheOptionsCommon {
-  type: "disable"|"memory"
+export interface RawExperimentCacheOptionsMemory {
+  type: "memory" | "disable"
 }
 
 export interface RawExperimentCacheOptionsPersistent {
@@ -1396,9 +1390,9 @@ export interface RawExperimentCacheOptionsPersistent {
 export interface RawExperiments {
   layers: boolean
   topLevelAwait: boolean
-  incremental?: RawIncremental
+  incremental?: WithFalse
   rspackFuture: RawRspackFuture
-  cache: RawExperimentCacheOptionsPersistent | RawExperimentCacheOptionsCommon
+  cache: RawExperimentCacheOptionsPersistent | RawExperimentCacheOptionsMemory | boolean
 }
 
 export interface RawExperimentSnapshotOptions {
@@ -1755,16 +1749,13 @@ export interface RawOptimizationOptions {
 
 export interface RawOptions {
   mode?: undefined | 'production' | 'development' | 'none'
-  target: Array<string>
   context: string
   output: RawOutputOptions
   resolve: RawResolveOptions
   resolveLoader: RawResolveOptions
   module: RawModuleOptions
-  devtool: string
   optimization: RawOptimizationOptions
   stats: RawStatsOptions
-  snapshot: RawSnapshotOptions
   cache: RawCacheOptions
   experiments: RawExperiments
   node?: RawNodeOption
@@ -1780,7 +1771,7 @@ export interface RawOutputOptions {
   clean: boolean | JsCleanOptions
   publicPath: "auto" | JsFilename
   assetModuleFilename: JsFilename
-  wasmLoading: string
+  wasmLoading: RawWasmLoading
   enabledWasmLoadingTypes: Array<string>
   webassemblyModuleFilename: string
   filename: JsFilename
@@ -1801,7 +1792,7 @@ export interface RawOutputOptions {
   importMetaName: string
   iife: boolean
   module: boolean
-  chunkLoading: string
+  chunkLoading: RawChunkLoading
   chunkLoadTimeout: number
   charset: boolean
   enabledChunkLoadingTypes?: Array<string>
@@ -1812,10 +1803,10 @@ export interface RawOutputOptions {
   hashDigestLength: number
   hashSalt?: string
   asyncChunks: boolean
-  workerChunkLoading: string
-  workerWasmLoading: string
+  workerChunkLoading: RawChunkLoading
+  workerWasmLoading: RawWasmLoading
   workerPublicPath: string
-  scriptType: "module" | "text/javascript" | "false"
+  scriptType: "module" | "text/javascript" | false
   environment: RawEnvironment
   compareBeforeEmit: boolean
 }
@@ -1961,10 +1952,6 @@ export interface RawSizeLimitsPluginOptions {
   hints?: "error" | "warning"
   maxAssetSize?: number
   maxEntrypointSize?: number
-}
-
-export interface RawSnapshotOptions {
-
 }
 
 export interface RawSourceMapDevToolPluginOptions {

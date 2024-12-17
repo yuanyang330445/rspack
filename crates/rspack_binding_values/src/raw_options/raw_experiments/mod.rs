@@ -8,14 +8,18 @@ use raw_incremental::RawIncremental;
 use raw_rspack_future::RawRspackFuture;
 use rspack_core::{incremental::IncrementalPasses, Experiments};
 
+use super::WithFalse;
+
 #[derive(Debug)]
-#[napi(object)]
+#[napi(object, object_to_js = false)]
 pub struct RawExperiments {
   pub layers: bool,
   pub top_level_await: bool,
-  pub incremental: Option<RawIncremental>,
+  pub incremental: Option<WithFalse<RawIncremental>>,
   pub rspack_future: RawRspackFuture,
-  #[napi(ts_type = r#"RawExperimentCacheOptionsPersistent | RawExperimentCacheOptionsCommon"#)]
+  #[napi(
+    ts_type = r#"RawExperimentCacheOptionsPersistent | RawExperimentCacheOptionsMemory | boolean"#
+  )]
   pub cache: RawExperimentCacheOptions,
 }
 
@@ -23,7 +27,10 @@ impl From<RawExperiments> for Experiments {
   fn from(value: RawExperiments) -> Self {
     Self {
       incremental: match value.incremental {
-        Some(value) => value.into(),
+        Some(value) => match value {
+          WithFalse::True(value) => value.into(),
+          WithFalse::False => IncrementalPasses::empty(),
+        },
         None => IncrementalPasses::empty(),
       },
       layers: value.layers,
