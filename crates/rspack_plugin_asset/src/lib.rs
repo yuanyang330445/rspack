@@ -426,13 +426,13 @@ impl ParserAndGenerator for AssetParserAndGenerator {
       .as_normal_module()
       .expect("module should be a NormalModule in AssetParserAndGenerator");
     let module_generator_options = normal_module.get_generator_options();
+    dbg!(module_generator_options);
 
     let result = match generate_context.requested_source_type {
       SourceType::JavaScript => {
         let exported_content = if parsed_asset_config.is_inline() {
           let resource_data: &ResourceData = normal_module.resource_resolved_data();
           let data_url = module_generator_options.and_then(|x| x.asset_data_url());
-
           let encoded_source: String;
 
           if let Some(custom_data_url) =
@@ -522,6 +522,61 @@ impl ParserAndGenerator for AssetParserAndGenerator {
         } else {
           unreachable!()
         };
+
+        let experimental_lib_preserve_import = module_generator_options
+          .and_then(|x| x.get_asset())
+          .and_then(|x| x.experimental_lib_preserve_import)
+          .or_else(|| {
+            module_generator_options
+              .and_then(|x| x.get_asset_resource())
+              .and_then(|x| x.experimental_lib_preserve_import)
+          })
+          .unwrap_or(false);
+        let experimental_lib_re_export = module_generator_options
+          .and_then(|x| x.get_asset())
+          .and_then(|x| x.experimental_lib_re_export)
+          .or_else(|| {
+            module_generator_options
+              .and_then(|x| x.get_asset_resource())
+              .and_then(|x| x.experimental_lib_re_export)
+          })
+          .unwrap_or(false);
+
+        dbg!(experimental_lib_preserve_import, experimental_lib_re_export);
+
+        if experimental_lib_preserve_import || experimental_lib_re_export {
+          let Some(PublicPath::Auto) = module_generator_options.and_then(|x| x.asset_public_path())
+          else {
+            return Err(error!(
+              "`experimentalLibPreserveImport` and `experimentalLibReExport` can only be used with `asset/resource` and `publicPath: 'auto'`"
+            ));
+          };
+
+          if let Some(ref mut scope) = generate_context.concatenation_scope {
+            scope.register_namespace_export(NAMESPACE_OBJECT_EXPORT);
+            return Ok(if experimental_lib_re_export {
+              RawStringSource::from(format!(
+                r#"import {NAMESPACE_OBJECT_EXPORT} from {exported_content};
+export default {NAMESPACE_OBJECT_EXPORT};"#
+              ))
+              .boxed()
+            } else {
+              RawStringSource::from(format!(
+                r#"import {NAMESPACE_OBJECT_EXPORT} from {exported_content};"#
+              ))
+              .boxed()
+            });
+          } else {
+            generate_context
+              .runtime_requirements
+              .insert(RuntimeGlobals::MODULE);
+            return Ok(
+              RawStringSource::from(format!(r#"module.exports = require({exported_content})"#))
+                .boxed(),
+            );
+          }
+        }
+
         if let Some(ref mut scope) = generate_context.concatenation_scope {
           scope.register_namespace_export(NAMESPACE_OBJECT_EXPORT);
           let supports_const = compilation.options.output.environment.supports_const();
@@ -646,6 +701,7 @@ async fn render_manifest(
           .get::<CodeGenerationDataAssetInfo>()
           .expect("should have asset_info")
           .inner();
+        dbg!(&asset_filename, &asset_info);
         RenderManifestEntry {
           source: source.clone(),
           filename: asset_filename.to_owned(),
