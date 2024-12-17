@@ -688,8 +688,6 @@ impl ModuleConcatenationPlugin {
           .module_by_identifier(&root_module_id)
           .expect("should exist module");
 
-        dbg!(&module, &new_module);
-
         let source_types = chunk_graph.get_chunk_module_source_types(&chunk_ukey, module);
         let new_source_types = source_types
           .iter()

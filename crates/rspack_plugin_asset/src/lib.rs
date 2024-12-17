@@ -426,7 +426,6 @@ impl ParserAndGenerator for AssetParserAndGenerator {
       .as_normal_module()
       .expect("module should be a NormalModule in AssetParserAndGenerator");
     let module_generator_options = normal_module.get_generator_options();
-    dbg!(module_generator_options);
 
     let result = match generate_context.requested_source_type {
       SourceType::JavaScript => {
@@ -541,8 +540,6 @@ impl ParserAndGenerator for AssetParserAndGenerator {
               .and_then(|x| x.experimental_lib_re_export)
           })
           .unwrap_or(false);
-
-        dbg!(experimental_lib_preserve_import, experimental_lib_re_export);
 
         if experimental_lib_preserve_import || experimental_lib_re_export {
           let Some(PublicPath::Auto) = module_generator_options.and_then(|x| x.asset_public_path())
@@ -701,7 +698,6 @@ async fn render_manifest(
           .get::<CodeGenerationDataAssetInfo>()
           .expect("should have asset_info")
           .inner();
-        dbg!(&asset_filename, &asset_info);
         RenderManifestEntry {
           source: source.clone(),
           filename: asset_filename.to_owned(),
