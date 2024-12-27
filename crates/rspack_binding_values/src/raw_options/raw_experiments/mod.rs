@@ -38,6 +38,12 @@ impl From<RawExperiments> for Experiments {
       top_level_await: value.top_level_await,
       rspack_future: value.rspack_future.unwrap_or_default().into(),
       cache: normalize_raw_experiment_cache_options(value.cache),
+
+      // FIXME: remove this
+      css: Default::default(),
+      async_web_assembly: Default::default(),
+      future_defaults: Default::default(),
+      output_module: Default::default(),
     }
   }
 }
