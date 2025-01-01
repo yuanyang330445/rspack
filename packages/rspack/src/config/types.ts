@@ -1157,6 +1157,11 @@ export type AssetResourceGeneratorOptions = {
 
 	/** This option determines the URL prefix of the referenced 'asset' or 'asset/resource'*/
 	publicPath?: PublicPath;
+
+	/** */
+	experimentalLibReExport?: boolean;
+	/** */
+	experimentalLibPreserveImport?: boolean;
 };
 
 /** Generator options for asset modules. */
